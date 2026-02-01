@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+        #player { width: 100%; height: 100vh; }
+    </style>
+</head>
+<body>
+    <div id="player"></div>
+    <script>
+        // Récupère le nom de la chaîne depuis l'URL (ex: ?ch=guadeloupe4tv)
+        const urlParams = new URLSearchParams(window.location.search);
+        const channel = urlParams.get('ch') || 'twitch';
+        
+        // On construit l'iframe avec ton domaine GitHub en parent
+        document.getElementById('player').innerHTML = `
+            <iframe 
+                src="https://player.twitch.tv/?channel=${channel}&parent=maladroit80.github.io" 
+                height="100%" width="100%" allowfullscreen="true" frameborder="0">
+            </iframe>`;
+    </script>
+</body>
+</html>
