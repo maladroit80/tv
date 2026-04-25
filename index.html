@@ -1,48 +1,66 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body, html { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
-        #player { width: 100%; height: 100vh; }
-    </style>
-</head>
-<body>
-    <div id="player"></div>
-    <script>
-        // Récupère le nom de la chaîne depuis l'URL (ex: ?ch=guadeloupe4tv)
-        const urlParams = new URLSearchParams(window.location.search);
-        const channel = urlParams.get('ch') || 'twitch';
-        
-        // On construit l'iframe avec ton domaine GitHub en parent
-        document.getElementById('player').innerHTML = `
-            <iframe 
-                src="https://player.twitch.tv/?channel=${channel}&parent=maladroit80.github.io" 
-                height="100%" width="100%" allowfullscreen="true" frameborder="0">
-            </iframe>`;
-    </script>
-    <script>
-(function () {
+<?php
+header("Access-Control-Allow-Origin: *");
 
-  function closePopup() {
-    try {
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage("GRATUITTV_CLOSED", "*");
-      }
-      window.close();
-    } catch (e) {}
-  }
+if (!isset($_GET['url'])) {
+    http_response_code(400);
+    die("No URL");
+}
 
-  // Bouton Fermer personnalisé
-  const closeBtn = document.getElementById("close-btn");
-  if (closeBtn) {
-    closeBtn.addEventListener("click", closePopup);
-  }
+$url = $_GET['url'];
 
-  // Sécurité : fermeture si l'utilisateur quitte la page
-  window.addEventListener("beforeunload", closePopup);
+// sécurité minimale
+if (!filter_var($url, FILTER_VALIDATE_URL)) {
+    http_response_code(400);
+    die("Invalid URL");
+}
 
-})();
-</script>
-</body>
-</html>
+// cURL
+$ch = curl_init($url);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0");
+
+$data = curl_exec($ch);
+
+if ($data === false) {
+    http_response_code(500);
+    die("cURL error");
+}
+
+$contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+curl_close($ch);
+
+// 🎯 Si c’est un M3U8 → on réécrit les liens
+if (strpos($url, '.m3u8') !== false) {
+
+    header("Content-Type: application/vnd.apple.mpegurl");
+
+    $base = dirname($url);
+
+    $data = preg_replace_callback('/^(?!#)(.*)$/m', function($matches) use ($base) {
+        $line = trim($matches[1]);
+
+        if ($line === "") return "";
+
+        // URL complète
+        if (filter_var($line, FILTER_VALIDATE_URL)) {
+            return "proxy.php?url=" . urlencode($line);
+        }
+
+        // URL relative
+        return "proxy.php?url=" . urlencode($base . "/" . $line);
+    }, $data);
+
+}
+// 🎥 segments vidéo
+elseif (strpos($url, '.ts') !== false) {
+    header("Content-Type: video/mp2t");
+}
+// autre contenu
+else {
+    header("Content-Type: " . $contentType);
+}
+
+echo $data;
+?>
